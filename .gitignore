@@ -73,6 +73,33 @@ $RECYCLE.BIN/
 
 
 ############################
+# Python (для бота)
+############################
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+############################
+# Локальные данные пользователей бота
+############################
+
+user_*.json
+user_progress_*.txt
+user_questions_log.txt
+
+############################
 # Misc.
 ############################
 
@@ -86,7 +113,7 @@ public/uploads/*
 .eslintcache
 
 ############################
-# Node.js
+# Node.js / Strapi
 ############################
 
 lib-cov
@@ -96,6 +123,10 @@ logs
 results
 node_modules
 .node_history
+.cache
+.tmp
+*.db
+*.db-journal
 
 ############################
 # Package managers
@@ -122,6 +153,8 @@ coverage
 ############################
 
 .env
+.env.local
+.env.production
 license.txt
 exports
 .strapi
