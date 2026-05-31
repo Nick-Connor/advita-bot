@@ -7,9 +7,9 @@ from strapi_client import get_cell_by_day, get_user_by_telegram_id, save_user_pr
 
 router = Router()
 
-# Для тестового режима (если не декабрь) - установите True
+# Для тестового режима (если не декабрь) -  True
 TEST_MODE = True  # При тестировании = True, в декабре измените на False
-TEST_DAY = 15  # Какой день декабря симулируем
+TEST_DAY = 15  # Какой день декабря тестируем
 
 # Словарь для хранения сообщений с календарём (для автоматического обновления)
 user_calendar_messages = {}
@@ -100,33 +100,60 @@ async def open_cell(callback: CallbackQuery):
             return
         current_day = now.day
 
+    # 🔍 ОТЛАДКА 1: начало открытия ячейки
+    print(f"🔍 [open_cell] Начало: day={day}, current_day={current_day}, TEST_MODE={TEST_MODE}")
+
     if day > current_day:
         await callback.answer(f"🔒 Ячейка {day} декабря откроется {day}.12.", show_alert=True)
         return
 
+    # ✅ Получаем ячейку ОДИН РАЗ и сохраняем в переменную
     cell = await get_cell_by_day(day)
     if not cell:
+        print(f"❌ [open_cell] Ячейка {day} не найдена в Strapi")
         await callback.answer("Контент для этой ячейки не найден.", show_alert=True)
         return
+
+    # 🔍 ОТЛАДКА 2: информация о ячейке
+    print(
+        f"🔍 [open_cell] Ячейка получена: id={cell.get('id')}, day_number={cell.get('day_number')}, type={cell.get('cell_type')}")
 
     user = await get_user_by_telegram_id(callback.from_user.id)
     if not user:
         user = await create_user(callback.from_user.id, callback.from_user.username)
-
-    if not user:
-        already_opened = False
-        reward_text = ""
+        print(f"🔍 [open_cell] Создан новый пользователь: {user.get('id') if user else 'None'}")
     else:
-        already_opened = await is_cell_opened(user['id'], day)
+        print(
+            f"🔍 [open_cell] Найден пользователь: id={user.get('id')}, telegram_id={user.get('telegram_id')}, consent={user.get('consent_given')}")
+
+    # 🔍 ОТЛАДКА 3: проверка user
+    if not user:
+        print(f"❌ [open_cell] Пользователь не найден и не создан")
+        already_opened = False
+    else:
+        cell_id = cell['id']  # внутренний ID ячейки в Strapi
+        print(f"🔍 [open_cell] Проверка прогресса: user_id={user['id']}, cell_id={cell_id}")
+
+        already_opened = await is_cell_opened(user['id'], cell_id)
+        print(f"🔍 [open_cell] already_opened = {already_opened}")
+
         if not already_opened:
-            await save_user_progress(user['id'], day)
-            reward_text = ""
+            # Сохраняем прогресс
+            print(f"🔍 [open_cell] Сохранение прогресса...")
+            save_result = await save_user_progress(user['id'], cell_id)
+            print(f"🔍 [open_cell] Результат save_user_progress: {save_result}")
 
-            # Записываем событие открытия ячейки в статистику
+            # Записываем событие в статистику
             await log_stat_event("cell_opened", callback.from_user.id, str(day), callback.from_user.username)
-        else:
-            reward_text = ""
+            print(f"✅ Прогресс сохранён: пользователь {user['id']}, ячейка {day} (ID={cell_id})")
 
+            # 🔍 ОТЛАДКА 4: проверка после сохранения
+            check_again = await is_cell_opened(user['id'], cell_id)
+            print(f"🔍 [open_cell] После сохранения: is_cell_opened = {check_again}")
+        else:
+            print(f"ℹ️ Ячейка {day} уже была открыта ранее")
+
+    # ✅ Отправляем контент (используем сохранённую cell)
     text_content = rich_text_to_string(cell['text_content'])
 
     # Отправляем контент в зависимости от типа
@@ -156,9 +183,11 @@ async def open_cell(callback: CallbackQuery):
             except Exception as e:
                 print(f"Ошибка отправки фото: {e}")
 
-    # ОБНОВЛЯЕМ ПРОГРЕСС В КАЛЕНДАРЕ (автоматически)
+    # ✅ Обновляем отображение календаря
     if user:
         opened_days = await get_opened_days(user['id'])
+        print(f"🔍 [open_cell] Обновление календаря: opened_days={opened_days}")
+
         keyboard = calendar_inline_keyboard(current_day, opened_days)
 
         calendar_data = user_calendar_messages.get(callback.from_user.id)
@@ -183,10 +212,12 @@ async def open_cell(callback: CallbackQuery):
                 # Обновляем сохранённые данные
                 calendar_data['opened_days'] = opened_days
                 calendar_data['current_day'] = current_day
+                print(f"🔍 [open_cell] Календарь обновлён, открыто дней: {len(opened_days)}")
             except Exception as e:
-                print(f"Ошибка обновления календаря: {e}")
+                print(f"❌ Ошибка обновления календаря: {e}")
 
-    await callback.answer(f"Ячейка {day} декабря открыта! Прогресс обновлён.")
+    await callback.answer(f"Ячейка {day} декабря открыта!")
+    print(f"🔍 [open_cell] Завершение обработки ячейки {day}")
 
 
 @router.callback_query(F.data.startswith("quiz_"))
@@ -195,14 +226,37 @@ async def check_quiz(callback: CallbackQuery):
     day = int(parts[1])
     answer_idx = int(parts[2])
 
+    print(f"🔍 [check_quiz] Ответ на викторину: day={day}, answer_idx={answer_idx}")
+
     cell = await get_cell_by_day(day)
     if cell and cell.get('quiz_correct_answer') == answer_idx:
+        print(f"✅ [check_quiz] Правильный ответ!")
         await callback.message.answer("🎉 Правильно! Молодец!")
 
-        # Обновляем прогресс в календаре после правильного ответа
+        # ✅ Сохраняем прогресс при правильном ответе на викторину
         user = await get_user_by_telegram_id(callback.from_user.id)
         if user:
+            cell_id = cell['id']
+            print(f"🔍 [check_quiz] Проверка прогресса: user_id={user['id']}, cell_id={cell_id}")
+
+            already_opened = await is_cell_opened(user['id'], cell_id)
+            print(f"🔍 [check_quiz] already_opened = {already_opened}")
+
+            if not already_opened:
+                save_result = await save_user_progress(user['id'], cell_id)
+                print(f"🔍 [check_quiz] save_user_progress result: {save_result}")
+
+                await log_stat_event("cell_opened", callback.from_user.id, str(day), callback.from_user.username)
+                print(f"✅ Прогресс сохранён (викторина): пользователь {user['id']}, ячейка {day}")
+
+                # Проверка после сохранения
+                check_again = await is_cell_opened(user['id'], cell_id)
+                print(f"🔍 [check_quiz] После сохранения: is_cell_opened = {check_again}")
+
+            # Обновляем отображение календаря
             opened_days = await get_opened_days(user['id'])
+            print(f"🔍 [check_quiz] opened_days после обновления: {opened_days}")
+
             current_day = TEST_DAY if TEST_MODE else datetime.datetime.now().day
             keyboard = calendar_inline_keyboard(current_day, opened_days)
 
@@ -225,8 +279,13 @@ async def check_quiz(callback: CallbackQuery):
                             reply_markup=keyboard,
                             parse_mode="Markdown"
                         )
+                    print(f"🔍 [check_quiz] Календарь обновлён")
                 except Exception as e:
-                    print(f"Ошибка обновления календаря: {e}")
+                    print(f"❌ Ошибка обновления календаря: {e}")
+        else:
+            print(f"⚠️ [check_quiz] Пользователь не найден")
     else:
+        print(
+            f"❌ [check_quiz] Неправильный ответ! Ожидалось: {cell.get('quiz_correct_answer') if cell else 'None'}, получено: {answer_idx}")
         await callback.message.answer("❌ Неправильно. Попробуйте другой вариант!")
     await callback.answer()
