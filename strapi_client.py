@@ -32,7 +32,7 @@ def _extract_items(response_data):
     return []
 
 
-# ---------- Пользователи (кастомная коллекция TelegramUser) ----------
+# ---------- Пользователи (кастомная коллекция Telegram User) ----------
 async def get_user_by_telegram_id(telegram_id: int):
     """Найти пользователя в кастомной коллекции TelegramUser по telegram_id"""
     async with httpx.AsyncClient() as client:
