@@ -701,7 +701,23 @@ async def get_faq_categories() -> List[str]:
     try:
         async with httpx.AsyncClient() as client:
             url = f"{STRAPI_URL}/faqs"
-            response = await client.get(url)
+
+            # ========== ОТЛАДКА ==========
+            print(f"🔍 [get_faq_categories] ========== НАЧАЛО ОТЛАДКИ ==========")
+            print(f"🔍 [get_faq_categories] URL: {url}")
+            print(f"🔍 [get_faq_categories] STRAPI_URL: {STRAPI_URL}")
+            print(
+                f"🔍 [get_faq_categories] TOKEN (первые 20 символов): {STRAPI_API_TOKEN[:20] if STRAPI_API_TOKEN else 'None'}...")
+            print(f"🔍 [get_faq_categories] HEADERS: {HEADERS}")
+            # ========== КОНЕЦ ОТЛАДКИ ==========
+
+            response = await client.get(url, headers=HEADERS)
+
+            # ========== ОТЛАДКА ==========
+            print(f"🔍 [get_faq_categories] RESPONSE STATUS: {response.status_code}")
+            print(f"🔍 [get_faq_categories] RESPONSE HEADERS: {dict(response.headers)}")
+            print(f"🔍 [get_faq_categories] RESPONSE TEXT (первые 500 символов): {response.text[:500]}")
+            # ========== КОНЕЦ ОТЛАДКИ ==========
 
             if response.status_code >= 400:
                 _handle_response(response, "get_faq_categories")
@@ -710,17 +726,35 @@ async def get_faq_categories() -> List[str]:
                 data: Union[List[Dict[str, Any]], Dict[str, Any]] = response.json()
                 items: List[Dict[str, Any]] = _extract_items(data)
 
+                # ========== ОТЛАДКА ==========
+                print(f"🔍 [get_faq_categories] Найдено элементов: {len(items)}")
+                # ========== КОНЕЦ ОТЛАДКИ ==========
+
                 categories: set = set()
                 for item in items:
                     attrs: Dict[str, Any] = _build_attributes(item)
                     cat: Optional[str] = attrs.get('category')
                     if cat:
                         categories.add(cat)
+
+                # ========== ОТЛАДКА ==========
+                print(f"🔍 [get_faq_categories] Найдено категорий: {categories}")
+                print(f"🔍 [get_faq_categories] ========== КОНЕЦ ОТЛАДКИ ==========")
+                # ========== КОНЕЦ ОТЛАДКИ ==========
+
                 return sorted(list(categories))
+
+            # ========== ОТЛАДКА ==========
+            print(f"🔍 [get_faq_categories] Статус не 200, возвращаем пустой список")
+            print(f"🔍 [get_faq_categories] ========== КОНЕЦ ОТЛАДКИ ==========")
+            # ========== КОНЕЦ ОТЛАДКИ ==========
+
             return []
 
     except Exception as e:
         print(f"❌ Ошибка при получении категорий FAQ: {e}")
+        print(f"❌ [get_faq_categories] Тип ошибки: {type(e).__name__}")
+        print(f"❌ [get_faq_categories] Полная ошибка: {e}")
         return []
 
 
@@ -737,7 +771,24 @@ async def get_faq_by_category(category: str) -> List[FaqItem]:
     try:
         async with httpx.AsyncClient() as client:
             url = f"{STRAPI_URL}/faqs?filters[category][$eq]={category}&sort=order_index:asc"
-            response = await client.get(url)
+
+            # ========== ОТЛАДКА ==========
+            print(f"🔍 [get_faq_by_category] ========== НАЧАЛО ОТЛАДКИ ==========")
+            print(f"🔍 [get_faq_by_category] URL: {url}")
+            print(f"🔍 [get_faq_by_category] STRAPI_URL: {STRAPI_URL}")
+            print(f"🔍 [get_faq_by_category] category: {category}")
+            print(
+                f"🔍 [get_faq_by_category] TOKEN (первые 20 символов): {STRAPI_API_TOKEN[:20] if STRAPI_API_TOKEN else 'None'}...")
+            print(f"🔍 [get_faq_by_category] HEADERS: {HEADERS}")
+            # ========== КОНЕЦ ОТЛАДКИ ==========
+
+            response = await client.get(url, headers=HEADERS)
+
+            # ========== ОТЛАДКА ==========
+            print(f"🔍 [get_faq_by_category] RESPONSE STATUS: {response.status_code}")
+            print(f"🔍 [get_faq_by_category] RESPONSE HEADERS: {dict(response.headers)}")
+            print(f"🔍 [get_faq_by_category] RESPONSE TEXT (первые 500 символов): {response.text[:500]}")
+            # ========== КОНЕЦ ОТЛАДКИ ==========
 
             if response.status_code >= 400:
                 _handle_response(response, f"get_faq_by_category({category})")
@@ -746,6 +797,10 @@ async def get_faq_by_category(category: str) -> List[FaqItem]:
             if response.status_code == 200:
                 data: Union[List[Dict[str, Any]], Dict[str, Any]] = response.json()
                 items: List[Dict[str, Any]] = _extract_items(data)
+
+                # ========== ОТЛАДКА ==========
+                print(f"🔍 [get_faq_by_category] Найдено элементов: {len(items)}")
+                # ========== КОНЕЦ ОТЛАДКИ ==========
 
                 for item in items:
                     attrs: Dict[str, Any] = _build_attributes(item)
@@ -757,10 +812,18 @@ async def get_faq_by_category(category: str) -> List[FaqItem]:
                         'image_url': attrs.get('image', {}).get('url') if isinstance(attrs.get('image'), dict) else None
                     }
                     result.append(faq_item)
+
+            # ========== ОТЛАДКА ==========
+            print(f"🔍 [get_faq_by_category] Результат: {len(result)} вопросов")
+            print(f"🔍 [get_faq_by_category] ========== КОНЕЦ ОТЛАДКИ ==========")
+            # ========== КОНЕЦ ОТЛАДКИ ==========
+
             return result
 
     except Exception as e:
         print(f"❌ Ошибка при получении FAQ по категории {category}: {e}")
+        print(f"❌ [get_faq_by_category] Тип ошибки: {type(e).__name__}")
+        print(f"❌ [get_faq_by_category] Полная ошибка: {e}")
         return []
 
 
